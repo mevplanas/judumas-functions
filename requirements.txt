@@ -9,4 +9,8 @@ PyYAML==6.0.1
 tqdm==2.2.3
 pandas==2.0.3
 azure-storage-queue==12.6.0
-
+SQLAlchemy==1.4.41
+python-dotenv==0.21.0
+psycopg2-binary==2.9.5
+pyodbc==4.0.35
+geopandas==0.13.2

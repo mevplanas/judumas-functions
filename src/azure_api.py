@@ -270,7 +270,7 @@ class OpQueuesHandler(object):
         :param message : queque message
         """
 
-        self.service_client.send_message(message.encode(), visibility_timeout=600)
+        self.service_client.send_message(message.encode(), visibility_timeout=10)
 
     def get_messages(self) -> list:
         """

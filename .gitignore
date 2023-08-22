@@ -136,3 +136,9 @@ __azurite_db*__.json
 
 # Config files
 configuration.yml
+
+# SQL credentials
+sqlserv-cred.env
+
+# VS
+.vscode
