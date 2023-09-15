@@ -164,7 +164,7 @@ def query_max():
         }
     ]
 
-    url = "https://opencity.vplanas.lt/arcgis/rest/services/P_Judumas/Judumas_OP_data_update/FeatureServer/1"
+    url = "https://opencity.vplanas.lt/arcgis/rest/services/P_Judumas/Judumas_OP_data_update/FeatureServer/9"
 
     data = arc_conn.query_max_id(url, query)
     max_id = data["features"][0]["attributes"]["max_obj_id"]
