@@ -23,7 +23,7 @@ app = func.FunctionApp()
 # Blob trigger decorator
 @app.blob_trigger(
     arg_name="myblob",
-    path="op-test",
+    path="op-test-adf",
     connection="judumas_STORAGE",
     kwargs={},
 )
@@ -106,12 +106,12 @@ def op_mapper(myblob: func.InputStream):
             table_client=data_handler, entities=entities
         )
         # Spliting all data into chunks
-        chunks = utils.create_chunks(n=500, data=entities_converted)
+        chunks = utils.create_chunks(n=50000, data=entities_converted)
         i = 0
         # Upload data as csv files into Azure Blob Storage
         for chunk in tqdm(chunks, total=len(chunks), desc="Inserting data"):
             blob_handler.upload_blob_csv(
-                "op-test-csv", name=f"{op_date}_{i}", data=chunk
+                "op-test-csv-adf", name=f"{op_date}_{i}", data=chunk
             )
             i += 1
 
