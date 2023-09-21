@@ -87,6 +87,9 @@ def op_mapper(myblob: func.InputStream):
                     "op_date": op_date,
                     "op_hour": op_hour,
                     "filename": el["filename"],
+                    "created_at": utils.get_time()[1],
+                    "updated_at": utils.get_time()[1],
+                    "datetime": f"{op_date[0:4]}-{op_date[4:6]}-{op_date[6:8]} {op_hour}:00:00",
                 }
             )
 
@@ -95,25 +98,16 @@ def op_mapper(myblob: func.InputStream):
         # Merge OSM network with remaped data
         data = df_op.merge(df_osm, on="osm_id", how="inner")
 
-        max_id = utils.query_max()
-
-        data["OBJECTID"] = data.index + max_id + 1
         # Convert data to list of dictionaries
         entities = data.to_dict(orient="records")
-        # Remaping data for Azure Table insertion
-        # (IT'S NOT NECCESSERY SO SHOULD BE REMOVE)
+
         entities_converted = utils.convert_entities(
             table_client=data_handler, entities=entities
         )
-        # Spliting all data into chunks
-        chunks = utils.create_chunks(n=50000, data=entities_converted)
-        i = 0
-        # Upload data as csv files into Azure Blob Storage
-        for chunk in tqdm(chunks, total=len(chunks), desc="Inserting data"):
-            blob_handler.upload_blob_csv(
-                "op-test-csv-adf", name=f"{op_date}_{i}", data=chunk
-            )
-            i += 1
+
+        blob_handler.upload_blob_csv(
+            "op-test-csv-adf", name=f"{op_date}", data=entities_converted
+        )
 
     else:
         logging.info(f"{myblob.name} is not a zip file")
