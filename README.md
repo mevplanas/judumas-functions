@@ -57,5 +57,5 @@ func azure functionapp publish JUDUMAS-FUNCTIONS
 
 The `BlobTrigger` function is triggered when a new blob is uploaded to the specified container. The function reads blob name, create a message with blob name and sends message to the Azure Queue.
 
-Azure Storage Account - "vilniausduomenys"
-Container - "strava"
+- Azure Storage Account - "vilniausduomenys"
+- Container - "strava"
