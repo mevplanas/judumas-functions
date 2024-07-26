@@ -135,3 +135,6 @@ __azurite_db*__.json
 
 # Config files
 configuration.yml
+
+.vscode
+extensions.json

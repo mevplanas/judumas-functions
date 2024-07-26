@@ -6,8 +6,11 @@ import os
 # Create function app
 app = func.FunctionApp()
 
+
 # Create blob trigger function
-@app.blob_trigger(arg_name="myblob",path='strava/{name}.zip', connection='AzureWebJobsStorage')
+@app.blob_trigger(
+    arg_name="blob", path="strava/{name}.zip", connection="AzureWebJobsStorage"
+)
 def my_blob_trigger(blob: func.InputStream):
         
     # Create file name from InputStream
