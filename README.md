@@ -48,7 +48,7 @@ func start
 ## Deploying the project
 
 ```
-func azure functionapp publish JUDUMAS-FUNCTIONS
+func azure functionapp publish judumas --build remote
 ```
 
 # Azure Functions
