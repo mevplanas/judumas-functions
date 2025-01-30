@@ -138,3 +138,4 @@ configuration.yml
 
 .vscode
 extensions.json
+local.settings.json
