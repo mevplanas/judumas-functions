@@ -140,9 +140,51 @@ class OpRoutesDates(Base):
         finally:
             session.close()
 
+    @classmethod
+    def check_and_add_drive_date(cls, conn: ssc, date_string: str, object_id: int) -> None:
+        """
+        Description:
+        ------------
+        Check if the given date exists in the `date_str` and `dates_bikes` columns.
+        - If the date doesn't exist in either, add it to both.
+        - If it exists in `date_str` but not in `dates_bikes`, update `dates_bikes`.
+
+        Parameters:
+        ------------
+        :param conn: Database connection object.
+        :param date_string: Date value to check and potentially add.
+        :param object_id: OBJECTID value to be inserted with the date if needed.
+        """
+
+        session = conn.create_session()
+        try:
+            # Query the row with the matching date_str
+            existing_row = (
+                session.query(cls).filter(or_(cls.date_str == date_string, cls.dates_pedestrians == date_string, cls.dates_vt == date_string, cls.dates_bikes == date_string)).first()
+            )
+
+            if not existing_row:
+                # If the date doesn't exist in either column, insert a new row with the date in both columns
+                new_row = cls(
+                    OBJECTID=object_id,
+                    dates_str=date_string,
+                )
+                session.add(new_row)
+            else:
+                # If the date exists in `date_str` but not in `dates_bikes`, update the row
+                if not existing_row.date_str:
+                    existing_row.date_str = date_string
+
+            # Commit the changes
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
 
     @classmethod
-    def check_and_add_bikes(cls, conn: ssc, date_string: str, object_id: int) -> None:
+    def check_and_add_bikes_date(cls, conn: ssc, date_string: str, object_id: int) -> None:
         """
         Description:
         ------------

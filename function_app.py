@@ -4,9 +4,9 @@ from db import connection, models
 import os
 from src import azure_api
 from blobhand.blob.reader import BlobServiceClientReader
-
+from app import app as fastapi_app
 # Create function app
-app = func.FunctionApp()
+app = func.AsgiFunctionApp(app=fastapi_app, http_auth_level=func.AuthLevel.ANONYMOUS)
 
 
 # Create blob trigger function
@@ -69,11 +69,13 @@ def read_mobility_dates(req: func.HttpRequest):
     for row in insertion_data:
         # Get date string and object id from request
         date_str = row.get('dates')
-        
+
         ojbect_id = row.get('OBJECTID')
         # Check and add date to the table based on travel type
-        if travel_type == 'bikes':
-            models.OpRoutesDates.check_and_add_bikes(conn, date_str, ojbect_id)
+        if travel_type == 'drive':
+            models.OpRoutesDates.check_and_add_drive_date(conn, date_str, ojbect_id)
+        elif travel_type == 'bikes':
+            models.OpRoutesDates.check_and_add_bikes_date(conn, date_str, ojbect_id)
         elif travel_type == 'public_transport':
             models.OpRoutesDates.check_and_add_public_transport_date(conn, date_str, ojbect_id)
         elif travel_type == 'pedestrians':
@@ -81,7 +83,7 @@ def read_mobility_dates(req: func.HttpRequest):
         else:
             return func.HttpResponse("Invalid travel type", status_code=400)
 
-    # Query csv file with records with dates
+    return func.HttpResponse("Data inserted successfully", status_code=200)
 
 
 # @app.blob_trigger(
@@ -140,3 +142,5 @@ def read_mobility_dates(req: func.HttpRequest):
 #         print("Job started successfully")
 #         # Delete message from queue
 #         queue_handler.delete_messages(msg)
+
+    
