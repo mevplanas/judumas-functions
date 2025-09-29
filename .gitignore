@@ -6,6 +6,8 @@ __pycache__/
 # C extensions
 *.so
 
+#vscode
+
 # Distribution / packaging
 .Python
 build/
@@ -136,6 +138,9 @@ __azurite_db*__.json
 # Config files
 configuration.yml
 
-.vscode
 extensions.json
 local.settings.json
+
+AzuriteConfig
+
+.vscode/
