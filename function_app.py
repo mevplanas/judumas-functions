@@ -1,25 +1,34 @@
 # Import necessary libraries
 import azure.functions as func
-from db import connection, models
 import os
 from src import azure_api
-from blobhand.blob.reader import BlobServiceClientReader
-from app import app as fastapi_app
-# Create function app
-app = func.AsgiFunctionApp(app=fastapi_app, http_auth_level=func.AuthLevel.ANONYMOUS)
+import requests
+import logging
+
+
+def add_timestamp(data, start_time, end_time):
+
+    if data:
+        for row in data:
+            row["startTime"] = start_time
+            row["endTime"] = end_time
+
+    return data
+
+
+# Create FunctionApp instance
+app = func.FunctionApp()
 
 
 # Create blob trigger function
-@app.blob_trigger(
-    arg_name="blob", path="strava/{name}.zip", connection="AzureConnectionString"
-)
+@app.blob_trigger(arg_name="blob", path="strava/{name}.zip", connection="AzureConnectionString")
 def strava_zip_blob_trigger(blob: func.InputStream):
 
     # Create file name from InputStream
     file_name = blob.name
     file_name = file_name.split("/")
     file_name = file_name[1:]
-    blob_name = '/'.join(file_name)
+    blob_name = "/".join(file_name)
 
     # Get connection string and queue name from environment variables
     conn_str = os.environ["AzureConnectionString"]
@@ -31,116 +40,42 @@ def strava_zip_blob_trigger(blob: func.InputStream):
     queues_handler.insert_queque_msg(blob_name)
 
 
-@app.function_name("adf-read-mobility-data")
-@app.route("adf/read/dates")
-def read_mobility_dates(req: func.HttpRequest):
+@app.timer_trigger(schedule="0 */1 * * * *", arg_name="myTimer", run_on_startup=True, use_monitor=False)
+def waze_ingest(myTimer: func.TimerRequest) -> None:
 
-    # Get enironment variables
-    conn_str = os.environ["JudumasConnectionString"]
-    mssql_user = os.environ["MSSQL_USER"]
-    mssql_password = os.environ["MSSQL_PASSWORD"]
-    mssql_server = os.environ["MSSQL_SERVER"]
-    mssql_database = os.environ["MSSQL_DATABASE"]
-    mssql_driver = os.environ["MSSQL_DRIVER"]
+    # Get Waze API endpoint from environment variables
+    waze_api_endpoint = os.environ["WazeApiEndpoint"]
+    # Make GET request to Waze API endpoint
 
-    # Get connection string and queue name from environment variables
-    container_name = req.params.get("azcontainer")
-    csv_file = req.params.get("csvfile")
-    travel_type = req.params.get("traveltype")
+    response = requests.get(waze_api_endpoint)
 
-    # Create instance of SQLServerConnection class
-    conn = connection.SQLServerConnection(user=mssql_user, password=mssql_password, host=mssql_server, db_name=mssql_database, driver=mssql_driver)
+    if response.status_code == 200:
+        data = response.json()
 
-    max_id = models.OpRoutesDates.get_max_id(conn)
+        waze_allerts = data.get("alerts", [])
+        waze_jams = data.get("jams", [])
 
-    if max_id is None:
-        max_id = 0
-    else:
-        max_id = max_id + 1
+        start_time = data.get("startTimeMillis", 0)
+        end_time = data.get("endTimeMillis", 0)
 
-    blob_client = BlobServiceClientReader.from_connection_string(conn_str=conn_str)
+        waze_allerts = add_timestamp(waze_allerts, start_time, end_time)
+        waze_jams = add_timestamp(waze_jams, start_time, end_time)
 
-    df = blob_client.csv_to_dataframe(container=container_name, blob_name=csv_file)
+        # Get connection string and table names from environment variables
+        conn_str = os.environ["WazeStorageConnectionString"]
+        alerts_table = os.environ["WazeAlertsTableName"]
+        jams_table = os.environ["WazeJamsTableName"]
 
-    df['OBJECTID'] = max_id + df.index
+        # Create instance of OpTablesHandler class
+        table_handler = azure_api.AzTableHandler(conn_str=conn_str)
 
-    insertion_data = df.to_dict(orient='records')
+        if waze_allerts:
+            table_handler.insert_entities(table_name=alerts_table, entities=waze_allerts)
 
-    for row in insertion_data:
-        # Get date string and object id from request
-        date_str = row.get('dates')
+        if waze_jams:
+            table_handler.insert_entities(table_name=jams_table, entities=waze_jams)
 
-        ojbect_id = row.get('OBJECTID')
-        # Check and add date to the table based on travel type
-        if travel_type == 'drive':
-            models.OpRoutesDates.check_and_add_drive_date(conn, date_str, ojbect_id)
-        elif travel_type == 'bikes':
-            models.OpRoutesDates.check_and_add_bikes_date(conn, date_str, ojbect_id)
-        elif travel_type == 'public_transport':
-            models.OpRoutesDates.check_and_add_public_transport_date(conn, date_str, ojbect_id)
-        elif travel_type == 'pedestrians':
-            models.OpRoutesDates.check_and_add_pedestrians_date(conn, date_str, ojbect_id)
-        else:
-            return func.HttpResponse("Invalid travel type", status_code=400)
+    if myTimer.past_due:
+        logging.info("The timer is past due!")
 
-    return func.HttpResponse("Data inserted successfully", status_code=200)
-
-
-# @app.blob_trigger(
-#     arg_name="blob", path="anon-data/{name}.zip", connection="OpAnonDataStorage"
-# )
-# def clean_databricks_job_trigger(blob: func.InputStream):
-#     # Get connection string and queue name from environment variables
-#     url = "https://adb-4183188713368390.10.azuredatabricks.net/api/2.0/jobs/run-now"
-
-#     headers = {
-#         "Authorization": f"Bearer {os.environ['databricks_token']}"}
-
-#     blob_date = blob.name.split("_")[0]
-
-#     body = {
-#         "job_id": int(os.environ["cleaning_job_id"]),
-#         "job_parameters": {"blob_date": f"{blob_date}"},
-#     }
-
-#     response = requests.post(url, headers=headers, json=body)
-
-#     if response.status_code == 200:
-#         print("Job started successfully")
-#     else:
-#         print("Job failed to start")
-
-
-# @app.queue_trigger(
-#     arg_name="msg", queue_name="op-cleaned-data", connection="databricks_storage"
-# )
-# def routing_databricks_job_trigger(msg: func.QueueMessage):
-#     # # Get connection string and queue name from environment variables
-#     conn_str = os.environ["databricks_storage"]
-#     queue = os.environ["queue_name"]
-
-#     # Get message content
-#     msg_content = msg.get_body().decode('utf-8')
-
-#     # Create instance of OpQueuesHandler class
-#     queue_handler = azure_api.OpQueuesHandler(queue_name=queue, conn_str=conn_str)
-
-#     url = "https://adb-4183188713368390.10.azuredatabricks.net/api/2.0/jobs/run-now"
-
-#     headers = {
-#         "Authorization": f"Bearer {os.environ['databricks_token']}"}
-
-#     body = {
-#         "job_id": int(os.environ["routing_job_id"]),
-#           "job_parameters": {
-#             "input_data": f"{msg_content}"
-#     }}
-
-#     response = requests.post(url, headers=headers, json=body)
-
-#     if response.status_code == 200:
-#         print("Job started successfully")
-#         # Delete message from queue
-#         queue_handler.delete_messages(msg)
-
-    
+    logging.info("Python timer trigger function executed.")
